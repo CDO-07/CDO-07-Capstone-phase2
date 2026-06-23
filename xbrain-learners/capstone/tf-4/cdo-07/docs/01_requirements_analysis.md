@@ -50,47 +50,26 @@ Sau khi nghiên cứu sâu sắc về bản chất bài toán và các rủi ro 
 * **Trade-off chấp nhận:** Để đổi lấy độ phân giải dữ liệu hoàn hảo và tốc độ truy vấn tức thời, nhóm chấp nhận độ phức tạp cao hơn trong việc quản lý và tối ưu hóa chi phí truy vấn (Query Scan Cost) trên Amazon Timestream nhằm giữ vững mục tiêu tổng chi phí không vượt quá mức circuit breaker $200/tháng.
 
 ---
-## 4. Comparison với 2 nhóm cùng task force
 
-<!-- TODO: Điền sau khi biết angle của 2 CDO còn lại (T3 W11) -->
+## 4. Constraints
 
-| Aspect | CDO-07 (my angle) | CDO-XX (angle B) | CDO-YY (angle C) |
-|---|---|---|---|
-| Compute pattern | `< TODO >` | TBD | TBD |
-| Time-series storage | `< TODO >` | TBD | TBD |
-| Ingest path | `< TODO >` | TBD | TBD |
-| Cost profile | `< TODO >` | TBD | TBD |
-| Ops complexity | `< TODO >` | TBD | TBD |
-| Latency profile | `< TODO >` | TBD | TBD |
-| **Win axis** | `< TODO >` | TBD | TBD |
-
-## 5. Constraints
-
-- **AWS only** (no multi-cloud)
-- **Region**: us-east-1 (default TF4, confirm với Client)
-- **Budget**: ≤ $200 / 2 tuần build
-- **Code freeze**: T4 W12 18h (01/07/2026 18:00)
-- **Production traffic**: KHÔNG - synthetic workload + k6/Locust load test only
-- **Auto-remediation**: KHÔNG - predict + recommend only
-- **LLM-based prediction**: KHÔNG (cost prohibitive) - statistical/ML model only
-
-## 6. Open questions
-
-<!-- Cập nhật sau Client interview chiều T2 22/06 -->
-
-- [ ] Q1: Trong 120 service, tier-1 cụ thể nào cần baseline trước? Tiêu chí chọn là gì?
-- [ ] Q2: Metric granularity hiện có (1-min / 5-min), retention bao lâu?
-- [ ] Q3: Historical data có sẵn export được không (CloudWatch, Datadog)?
-- [ ] Q4: Seasonality pattern rõ không - có calendar data (Black Friday, payroll cycle)?
-- [ ] Q5: Alert routing khi predict drift: Slack channel nào, escalation path?
-- [ ] Q6: Failure mode khi engine down - fallback static threshold hay skip alert?
-- [ ] Q7: Region confirm: us-east-1 hay ap-southeast-1?
-- [ ] Q8: CloudWatch GetMetricData rate limit - có hit không ở 50k events/sec?
+- **AWS only** – Không triển khai multi-cloud, chỉ sử dụng các dịch vụ AWS.
+- **Region** – ap-southeast-1 (Singapore) cho toàn bộ môi trường triển khai.
+- **Budget cap** – ≤ $200/tháng cho solution capstone.
+- **Single-region deployment** – Không triển khai multi-region, Disaster Recovery chỉ ở mức thiết kế.
+- **Auto-remediation** – Không nằm trong phạm vi dự án; hệ thống chỉ thực hiện prediction và recommendation.
+- **Auto-retraining pipeline** – Không xây dựng trong capstone; chỉ mô tả trigger logic thông qua ADR.
+- **Infrastructure metrics only** – Chỉ xử lý metrics hạ tầng (CPU, Memory, Queue Depth, Connections, Latency), không xử lý business metrics hoặc dữ liệu PII.
+- **Synthetic workload only** – Không sử dụng production traffic; kiểm thử bằng k6/Locust và dữ liệu mô phỏng.
+- **LLM-based prediction** – Không sử dụng do chi phí cao; tập trung vào statistical/ML-based forecasting.
+- **Code freeze**: Đóng băng code vào 08:00 AM ngày 02/07/2026. Mọi thay đổi sau thời điểm này đều bị từ chối.
 
 ---
 
-## Related documents
+## 5. Open questions
 
-- [`02_infra_design.md`](02_infra_design.md) - Architecture design cho platform này
-- [`08_adrs.md`](08_adrs.md) - ADR cho differentiation angle + key decisions
-- [`../../ai/docs/01_requirements.md`](../../ai/docs/01_requirements.md) - AI team requirements (source of truth cho AI scope)
+- [ ] Q1: Tier-1 services nào sẽ được lựa chọn làm baseline services trong giai đoạn capstone?
+- [ ] Q2: Lead time mục tiêu 15 phút có áp dụng đồng đều cho tất cả service hay có ngoại lệ cho RDS-intensive workloads?
+- [ ] Q3: Baseline refresh nên thực hiện theo lịch cố định hàng tuần hay dựa trên drift threshold?
+- [ ] Q4: Capacity recommendation có yêu cầu approval workflow trước khi gửi SNS notification hay không?
+- [ ] Q5: Service onboarding cần tối thiểu bao nhiêu ngày historical metrics để baseline đạt chất lượng chấp nhận được?
