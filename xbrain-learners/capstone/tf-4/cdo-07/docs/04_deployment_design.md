@@ -269,6 +269,35 @@ Tách IAM role theo nhiệm vụ:
 Application secret nằm trong Secrets Manager; pipeline chỉ truyền ARN.
 Gitleaks chạy trên PR và log phải redact credential.
 
+### 6.1 GitHub OIDC trust boundary và repository configuration
+
+OIDC trust policy giới hạn quyền assume-role theo đúng repository và GitHub
+Environment, không cho repository khác sử dụng deployment role:
+
+- Audience bắt buộc: `sts.amazonaws.com`.
+- Plan role chỉ được dùng bởi workflow của repository CDO-07.
+- Deploy staging role chỉ trust GitHub Environment `staging`.
+- Deploy production/demo role chỉ trust GitHub Environment `production` và
+  yêu cầu manual approval.
+- Workflow từ fork hoặc `pull_request_target` không được cấp deploy credential.
+
+Các giá trị cấu hình sau được lưu dưới GitHub Repository/Environment Variables,
+không phải secrets:
+
+| Variable | Mục đích |
+|---|---|
+| `AWS_REGION` | Region triển khai |
+| `AWS_PLAN_ROLE_ARN` | IAM role chạy Terraform plan |
+| `AWS_DEPLOY_ROLE_ARN` | IAM role push ECR và deploy ECS |
+| `TF_STATE_BUCKET` | Terraform remote state bucket |
+| `ECR_REPOSITORY` | Repository chứa container image |
+| `ECS_CLUSTER` | ECS cluster theo environment |
+| `CODEDEPLOY_APPLICATION` | CodeDeploy application |
+| `CODEDEPLOY_DEPLOYMENT_GROUP` | Blue/Green deployment group |
+
+Pipeline chỉ truyền secret ARN vào ECS task definition. Secret value không
+được đọc hoặc in ra workflow log.
+
 ## 7. Service onboarding deployment
 
 Onboarding là đăng ký service vào telemetry và baseline pipeline:
