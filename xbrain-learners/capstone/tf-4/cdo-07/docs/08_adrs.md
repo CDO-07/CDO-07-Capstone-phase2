@@ -112,3 +112,60 @@
 - **Alternatives considered**:
   - **Write trực tiếp từ Ingest Service vào Timestream (không qua queue)**: rejected — không chịu được sudden spike 3× mà không drop metric hoặc tăng latency response cho client gửi telemetry
   - **Kinesis Data Streams**: rejected — shard management phức tạp hơn SQS, và capstone không cần khả năng replay stream (đã loại ở ADR-001 khi so sánh cho ingest pipeline tổng thể)
+
+---
+
+## ADR-005 - Audit Log storage: Amazon S3 + Lifecycle Policy over DynamoDB
+
+- **Status**: Accepted
+- **Date**: 2026-06-25
+- **Context**: Hệ thống cần lưu trữ Audit Log sinh ra từ mỗi lần AI Serving gọi ML Model,
+  phục vụ 4 mục đích: Audit (kiểm toán), Incident Investigation (điều tra sự cố),
+  Prediction Traceability (truy vết lịch sử dự đoán), và đáp ứng yêu cầu compliance lưu trữ dữ liệu.
+
+  Yêu cầu chính:
+  - Lưu trữ tối đa **1 năm**.
+  - Dữ liệu được truy cập thường xuyên chủ yếu trong **90 ngày đầu**; sau đó truy cập rất thấp.
+  - Tối ưu chi phí lưu trữ dài hạn khi khối lượng log tăng liên tục theo số lần prediction.
+  - Không yêu cầu truy xuất thời gian thực hay độ trễ mili giây — audit chỉ diễn ra theo lịch
+    hoặc khi có yêu cầu điều tra cụ thể.
+  - Cần khả năng mở rộng không giới hạn khi số lượng user, frequency gọi model, hoặc số
+    lượng ML model tăng trong tương lai.
+
+  Hai phương án được đánh giá: **(1) Amazon S3** và **(2) Amazon DynamoDB**.
+
+- **Decision**: Chọn **Amazon S3** làm hệ thống lưu trữ chính cho Audit Log, quản lý dữ liệu
+  bằng **S3 Lifecycle Policy** tự động chuyển tier theo thời gian:
+
+  | Giai đoạn       | Storage Class               |
+  |-----------------|-----------------------------|
+  | 0 – 90 ngày     | S3 Standard                 |
+  | 90 – 365 ngày   | S3 Glacier Deep Archive     |
+  | Sau 365 ngày    | Xóa tự động (Expiration rule) |
+
+  AI Serving ghi Audit Log trực tiếp vào S3 (PutObject) sau mỗi lần predict. Dữ liệu được
+  mã hóa SSE-KMS (nhất quán với ADR-001). Khi có yêu cầu audit hoặc điều tra, dữ liệu trong
+  Glacier Deep Archive được khôi phục trước theo lịch với thời gian chờ chấp nhận được
+  (12–48h Standard Retrieval).
+
+- **Consequence**:
+  - **Ưu điểm**:
+    - Giảm chi phí lưu trữ dài hạn đáng kể: Glacier Deep Archive rẻ hơn S3 Standard ~95%
+      và rẻ hơn DynamoDB storage nhiều lần khi data volume tăng theo tháng/năm
+    - Lifecycle Policy tự động chuyển tier — không cần can thiệp thủ công, không cần
+      capacity planning phức tạp
+    - Scalability gần như không giới hạn: S3 không cần provision throughput hay shard như DynamoDB
+    - Tích hợp tự nhiên với Athena / Glue nếu cần phân tích log theo batch trong tương lai
+    - SSE-KMS native, nhất quán với cấu hình security toàn hệ thống (ADR-001)
+  - **Nhược điểm**:
+    - Dữ liệu trong Glacier Deep Archive cần 12–48h để khôi phục trước khi truy cập —
+      cần lên kế hoạch trước các đợt audit với dữ liệu > 90 ngày
+    - Không hỗ trợ truy vấn trực tiếp trên object (cần Athena hoặc tải xuống để query)
+    - Không phù hợp cho bất kỳ use case nào cần đọc Audit Log theo thời gian thực
+
+- **Alternatives considered**:
+  - **Amazon DynamoDB**: rejected — chi phí lưu trữ dài hạn cao hơn S3 khi data tích lũy
+    theo năm; tối ưu cho OLTP workload với truy vấn độ trễ thấp, nhưng Audit Log không có
+    yêu cầu đó; không có cơ chế lifecycle policy tự động giảm tier cost tương đương Glacier;
+    lợi thế millisecond latency của DynamoDB không mang lại giá trị tương xứng cho use case
+    Write Once, Read Rarely (WORR) của Audit Log
