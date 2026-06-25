@@ -1,0 +1,11 @@
+variable "project"                  { type = string }
+variable "environment"              { type = string }
+variable "aws_region"               { type = string }
+variable "kinesis_shard_count"      { type = number }
+variable "kinesis_retention_hours"  { type = number }
+variable "private_app_subnet_id"    { type = string }
+variable "lambda_sg_id"             { type = string }
+variable "timestream_database_name" { type = string }
+variable "timestream_table_name"    { type = string }
+variable "timestream_table_arn"     { type = string }
+variable "audit_bucket_name"        { type = string }

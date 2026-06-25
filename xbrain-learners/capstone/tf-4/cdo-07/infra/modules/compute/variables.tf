@@ -1,0 +1,14 @@
+variable "project"               { type = string }
+variable "environment"           { type = string }
+variable "aws_region"            { type = string }
+variable "vpc_id"                { type = string }
+variable "public_subnet_id"      { type = string }
+variable "private_app_subnet_id" { type = string }
+variable "alb_sg_id"             { type = string }
+variable "app_sg_id"             { type = string }
+variable "mock_service_image"    { type = string }
+variable "ai_engine_image"       { type = string }
+variable "timestream_db_name"    { type = string }
+variable "timestream_tbl_name"   { type = string }
+variable "kinesis_stream_arn"    { type = string }
+variable "ssm_inference_param"   { type = string }

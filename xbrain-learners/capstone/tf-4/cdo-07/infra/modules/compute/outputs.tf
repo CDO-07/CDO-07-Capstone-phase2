@@ -1,0 +1,9 @@
+output "ecs_cluster_name"       { value = aws_ecs_cluster.main.name }
+output "ecs_cluster_arn"        { value = aws_ecs_cluster.main.arn }
+output "alb_dns_name"           { value = aws_lb.main.dns_name }
+output "alb_arn"                { value = aws_lb.main.arn }
+output "alb_arn_suffix"         { value = aws_lb.main.arn_suffix }
+output "ai_engine_tg_arn"       { value = aws_lb_target_group.ai_engine.arn }
+output "ecr_ai_engine_repo_url" { value = aws_ecr_repository.ai_engine.repository_url }
+output "ecr_mock_repo_url"      { value = aws_ecr_repository.mock_services.repository_url }
+output "ai_engine_task_role_arn"{ value = aws_iam_role.ai_engine_task.arn }
