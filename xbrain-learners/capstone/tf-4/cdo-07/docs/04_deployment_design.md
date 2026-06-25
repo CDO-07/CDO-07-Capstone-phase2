@@ -1,7 +1,7 @@
 # Deployment & CI/CD Design - Task Force 4 · CDO-07
 
 <!-- Doc owner: CDO-07
-     Status: Final (W11 T4)
+     Status: Draft (W11 T4)
      Word target: 1200-2000 từ
      Last updated: 2026-06-25 -->
 
