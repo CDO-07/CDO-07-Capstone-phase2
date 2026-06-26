@@ -5,7 +5,8 @@
 # Dinh nghia cac bien dau vao can thiet de chay `terraform plan`.
 # Chung ta cung cap cac gia tri gia lap de test chay doc lap.
 variables {
-  amp_workspace_id          = "ws-test-12345"
+  timestream_database_name  = "test-metrics-db"
+  timestream_table_name     = "service-metrics"
   ai_engine_predict_url     = "http://test.local/predict"
   baseline_s3_bucket_name   = "test-baseline-bucket"
   audit_s3_bucket_name      = "test-audit-bucket"
@@ -67,8 +68,13 @@ run "plan_check_layer4_configurations" {
 
   # --- Test 4: Kiem tra cac bien moi truong cua Lambda ---
   assert {
-    condition     = module.window_feeder.aws_lambda_function.this.environment[0].variables.AMP_WORKSPACE_ID == var.amp_workspace_id
-    error_message = "Bien moi truong AMP_WORKSPACE_ID khong duoc thiet lap dung."
+    condition     = module.window_feeder.aws_lambda_function.this.environment[0].variables.TIMESTREAM_DATABASE_NAME == var.timestream_database_name
+    error_message = "Bien moi truong TIMESTREAM_DATABASE_NAME khong duoc thiet lap dung."
+  }
+
+  assert {
+    condition     = module.window_feeder.aws_lambda_function.this.environment[0].variables.TIMESTREAM_TABLE_NAME == var.timestream_table_name
+    error_message = "Bien moi truong TIMESTREAM_TABLE_NAME khong duoc thiet lap dung."
   }
 
   assert {
@@ -82,8 +88,8 @@ run "plan_check_layer4_configurations" {
   }
 
   assert {
-    condition     = module.window_feeder.aws_lambda_function.this.environment[0].variables.AMP_QUERY_WINDOW == "2h"
-    error_message = "Bien moi truong AMP_QUERY_WINDOW phai la '2h'."
+    condition     = module.window_feeder.aws_lambda_function.this.environment[0].variables.TIMESTREAM_QUERY_WINDOW == "2h"
+    error_message = "Bien moi truong TIMESTREAM_QUERY_WINDOW phai la '2h'."
   }
 
   # --- Test 5: Kiem tra cac quyen quan trong trong IAM Policy ---
@@ -92,9 +98,9 @@ run "plan_check_layer4_configurations" {
   assert {
     condition = contains(
       jsondecode(module.window_feeder.aws_iam_role_policy.lambda.policy).Statement[*].Action,
-      ["aps:GetLabels", "aps:GetMetricMetadata", "aps:GetSeries", "aps:QueryMetrics"]
+      ["timestream:DescribeEndpoints", "timestream:Select"]
     )
-    error_message = "IAM policy phai chua cac quyen de truy van Prometheus (aps:*)."
+    error_message = "IAM policy phai chua cac quyen de truy van Timestream."
   }
 
   assert {

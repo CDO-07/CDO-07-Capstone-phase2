@@ -74,9 +74,20 @@ variable "window_feeder_security_group_ids" {
   default     = []
 }
 
-variable "amp_workspace_id" {
-  description = "Amazon Managed Prometheus workspace ID used as the metrics source."
+variable "timestream_database_name" {
+  description = "Amazon Timestream database that stores service metrics from the Kinesis ingestion path."
   type        = string
+}
+
+variable "timestream_table_name" {
+  description = "Amazon Timestream table that stores service metrics from the Kinesis ingestion path."
+  type        = string
+}
+
+variable "timestream_query_window" {
+  description = "Rolling Timestream query window for Window Feeder."
+  type        = string
+  default     = "2h"
 }
 
 variable "ai_engine_predict_url" {
@@ -115,7 +126,7 @@ module "window_feeder" {
   source = "./modules/lambda-scheduled-function"
 
   function_name        = local.window_feeder_name
-  function_description = "Queries AMP over a rolling window, feeds AI Engine, writes audit, and emits drift alerts."
+  function_description = "Queries Timestream over a rolling window, feeds AI Engine, writes audit, and emits drift alerts."
   package_path         = var.window_feeder_package_path
   handler              = var.window_feeder_handler
   runtime              = var.window_feeder_runtime
@@ -131,8 +142,9 @@ module "window_feeder" {
   event_payload       = var.window_feeder_event_payload
 
   environment_variables = {
-      AMP_WORKSPACE_ID                 = var.amp_workspace_id
-      AMP_QUERY_WINDOW                 = "2h"
+      TIMESTREAM_DATABASE_NAME         = var.timestream_database_name
+      TIMESTREAM_TABLE_NAME            = var.timestream_table_name
+      TIMESTREAM_QUERY_WINDOW          = var.timestream_query_window
       AI_ENGINE_PREDICT_URL            = var.ai_engine_predict_url
       AI_ENGINE_TIMEOUT_SECONDS        = tostring(var.window_feeder_timeout_seconds)
       BASELINE_S3_BUCKET               = var.baseline_s3_bucket_name
@@ -157,15 +169,16 @@ module "window_feeder" {
         Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.window_feeder_name}:*"
       },
       {
-        Sid    = "QueryPrometheusWindow"
+        Sid    = "QueryTimestreamWindow"
         Effect = "Allow"
         Action = [
-          "aps:GetLabels",
-          "aps:GetMetricMetadata",
-          "aps:GetSeries",
-          "aps:QueryMetrics"
+          "timestream:DescribeEndpoints",
+          "timestream:Select"
         ]
-        Resource = "arn:aws:aps:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:workspace/${var.amp_workspace_id}"
+        Resource = [
+          "*",
+          "arn:aws:timestream:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:database/${var.timestream_database_name}/table/${var.timestream_table_name}"
+        ]
       },
       {
         Sid    = "ReadInferenceGate"

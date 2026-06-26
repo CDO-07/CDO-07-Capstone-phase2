@@ -35,3 +35,52 @@ override.tf.json
 terraform.rc
 
 architecture.md
+
+# Python virtual environments and local test dependencies
+.venv/
+**/.venv/
+venv/
+**/venv/
+env/
+**/env/
+ENV/
+**/ENV/
+
+# Python caches and test outputs
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Python packaging/build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Lambda local build/package artifacts
+lambda/**/package/
+lambda/**/build/
+lambda/**/*.zip
+lambda/**/python/
+
+# Terraform local files
+.terraform.lock.hcl
+*.tfplan
+tfplan
+tfplan.*
+
+# Local editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
