@@ -1,0 +1,9 @@
+.terraform/
+**/.build/
+__pycache__/
+*.pyc
+*.tfplan
+*.tfplan.json
+tfplan.bin
+crash.log
+crash.*.log
