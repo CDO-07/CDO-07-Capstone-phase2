@@ -22,7 +22,7 @@ graph TD
     %% Internet Client
     CLIENT["k6 Load Generator"] -->|"HTTPS 443"| ALB
     
-    subgraph VPC["VPC (10.0.0.0/16) — ap-southeast-1 (Singapore)"]
+    subgraph VPC["VPC (10.0.0.0/16) — us-east-1 (N. Virginia)"]
         subgraph PUB_SUB["Public Subnet (10.0.0.0/24)"]
             ALB["ALB (tf4-cdo07-alb-sg)"]
         end
@@ -114,10 +114,10 @@ graph TD
 | `tf4-cdo07-ai-engine-task-role` | AI Engine (ECS Fargate) | `s3:PutObject` (audit bucket `tf4-cdo07-audit-log`), `s3:GetObject` (baseline bucket `tf4-cdo07-baseline-models`), `timestream:Select`, `timestream:DescribeEndpoints` (truy vấn cửa sổ metrics 2h), `cloudwatch:PutMetricData`, `logs:PutLogEvents`, `kms:GenerateDataKey`, `kms:Decrypt` (CMK ARN) | `iam:*`, `s3:Delete*`, `ec2:*`, `timestream:WriteRecords` |
 | `tf4-cdo07-mock-svc-task-role` | Mock Services (ECS Fargate) | `kinesis:PutRecord`, `kinesis:PutRecords` (KDS Stream ARN), `cloudwatch:PutMetricData`, `logs:PutLogEvents`, `kms:GenerateDataKey` (mã hóa các bản ghi stream) | `timestream:*`, `s3:*`, `iam:*` |
 | `tf4-cdo07-lambda-transformer-role` | Lambda Transformer | `kinesis:GetRecords`, `kinesis:GetShardIterator`, `kinesis:DescribeStream` (từ KDS), `timestream:WriteRecords` (TSDB ARN), `timestream:DescribeEndpoints`, `kms:Decrypt` (giải mã các bản ghi Kinesis), `logs:PutLogEvents` | `s3:*`, `iam:*` |
-| `tf4-cdo07-lambda-feeder-role` | Lambda Window Feeder | `timestream:Select` (truy vấn metrics 2h), `timestream:DescribeEndpoints`, `ssm:GetParameter` (kiểm tra trạng thái `InferenceEnabled`), `sns:Publish` (scoped ARN: `arn:aws:sns:ap-southeast-1:<ACCOUNT>:tf4-cdo07-alerts`), `kms:Decrypt` (giải mã tham số), `logs:PutLogEvents` | `timestream:WriteRecords`, `s3:*`, `iam:*` |
+| `tf4-cdo07-lambda-feeder-role` | Lambda Window Feeder | `timestream:Select` (truy vấn metrics 2h), `timestream:DescribeEndpoints`, `ssm:GetParameter` (kiểm tra trạng thái `InferenceEnabled`), `sns:Publish` (scoped ARN: `arn:aws:sns:us-east-1:<ACCOUNT>:tf4-cdo07-alerts`), `kms:Decrypt` (giải mã tham số), `logs:PutLogEvents` | `timestream:WriteRecords`, `s3:*`, `iam:*` |
 | `tf4-cdo07-lambda-cb-role` | Lambda CB (Cost CB) | `ssm:PutParameter` (cập nhật tham số `InferenceEnabled`), `kms:GenerateDataKey`, `kms:Decrypt`, `logs:PutLogEvents` | `s3:*`, `timestream:*`, `iam:*` |
 | `tf4-cdo07-lambda-fallback-role` | Lambda Fail-Open Fallback | `sns:Publish` (ARN Topic alerts trong phạm vi / scoped ARN), `logs:PutLogEvents` | `iam:*`, `s3:*`, `timestream:*` |
-| `tf4-cdo07-eventbridge-invoke-role` | EventBridge (chu kỳ 5 phút / 5-min schedule) | `lambda:InvokeFunction` (scoped ARN: `arn:aws:lambda:ap-southeast-1:<ACCOUNT>:function:tf4-cdo07-window-feeder`) | `iam:*`, `s3:*`, `timestream:*`, `kms:*` |
+| `tf4-cdo07-eventbridge-invoke-role` | EventBridge (chu kỳ 5 phút / 5-min schedule) | `lambda:InvokeFunction` (scoped ARN: `arn:aws:lambda:us-east-1:<ACCOUNT>:function:tf4-cdo07-window-feeder`) | `iam:*`, `s3:*`, `timestream:*`, `kms:*` |
 | `tf4-cdo07-platform-deploy-role` | GitHub Actions CI/CD (OIDC) | `ecs:UpdateService`, `ecs:RegisterTaskDefinition`, `ecr:PutImage`, `ecr:GetAuthorizationToken`, `s3:PutObject` (tf-state bucket), `cloudformation:*` (scoped `tf4-cdo07-*` stack) | `iam:CreateUser`, `iam:CreateRole` (ngoài boundary), `s3:Delete*` production |
 | `tf4-cdo07-readonly-role` | Quyền truy cập để Mentor đánh giá / gỡ lỗi (Mentor review / debug access) | `cloudwatch:GetMetricData`, `ecs:Describe*`, `timestream:Select`, `s3:GetObject` (audit bucket), `logs:GetLogEvents` | Mọi hành động ghi/thay đổi (write/mutate action) |
 
@@ -131,7 +131,7 @@ graph TD
 - uses: aws-actions/configure-aws-credentials@v4
   with:
     role-to-assume: arn:aws:iam::<ACCOUNT>:role/tf4-cdo07-platform-deploy-role
-    aws-region: ap-southeast-1
+    aws-region: us-east-1
 ```
 
 > **Tại sao OIDC?**  Loại bỏ thông tin xác thực tĩnh (static credentials như AWS_ACCESS_KEY_ID / SECRET) khỏi GitHub Secrets. Token tự hết hạn sau 1 giờ, làm giảm phạm vi ảnh hưởng (blast radius) nếu CI runner bị xâm nhập (compromise).
@@ -151,7 +151,7 @@ graph TD
       "Effect": "Allow",
       "Action": "*",
       "Resource": [
-        "arn:aws:*:ap-southeast-1:<ACCOUNT>:*tf4-cdo07*",
+        "arn:aws:*:us-east-1:<ACCOUNT>:*tf4-cdo07*",
         "arn:aws:s3:::tf4-cdo07-*",
         "arn:aws:s3:::tf4-cdo07-*/*"
       ]
