@@ -1,0 +1,11 @@
+# AWS Configuration
+aws_region  = "us-east-1"
+aws_profile = "default"  # Replace with your AWS CLI profile name if different
+
+# Project Identifiers
+project     = "tf4-cdo07"
+environment = "sandbox"
+
+# Slack Webhook configuration
+# Create an incoming webhook in your Slack workspace and paste it below.
+slack_webhook_url = ""
