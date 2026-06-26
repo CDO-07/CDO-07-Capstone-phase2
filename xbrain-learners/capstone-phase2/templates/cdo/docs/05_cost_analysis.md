@@ -79,7 +79,7 @@
 
 ## 6. Cost guardrails
 
-- Monthly budget alert at 70%, 90%, 100%
+- Monthly budget alert at 80%
 - Per-tenant quota enforced via API rate limit
 - Bedrock daily spend cap (CloudWatch alarm)
 
