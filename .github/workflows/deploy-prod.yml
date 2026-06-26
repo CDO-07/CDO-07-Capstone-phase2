@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  AWS_REGION: ap-southeast-1
+  AWS_REGION: us-east-1
   ENVIRONMENT: prod
   PROJECT_DIR: xbrain-learners/capstone/tf-4/cdo-07
   SERVICES: ingest-service ingest-worker ai-serving

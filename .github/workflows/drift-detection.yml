@@ -1,19 +1,17 @@
-name: terraform-plan
+name: drift-detection
 
 on:
-  pull_request:
-    branches:
-      - develop
-      - main
+  schedule:
+    # Run daily at 02:15 UTC.
+    - cron: '15 2 * * *'
   workflow_dispatch:
     inputs:
       environment:
-        description: Terraform environment to plan
+        description: Terraform environment to check
         required: true
         default: staging
         type: choice
         options:
-          - sandbox
           - staging
           - prod
           - bootstrap
@@ -21,15 +19,18 @@ on:
 permissions:
   contents: read
   id-token: write
-  pull-requests: write
+
+concurrency:
+  group: drift-detection-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
 
 env:
   AWS_REGION: us-east-1
   PROJECT_DIR: xbrain-learners/capstone/tf-4/cdo-07
 
 jobs:
-  plan:
-    name: Terraform plan
+  drift-detection:
+    name: Drift detection
     runs-on: ubuntu-latest
 
     steps:
@@ -43,8 +44,6 @@ jobs:
           set -euo pipefail
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             env_name="${{ inputs.environment }}"
-          elif [[ "${{ github.base_ref }}" == "main" ]]; then
-            env_name="prod"
           else
             env_name="staging"
           fi
@@ -67,7 +66,14 @@ jobs:
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Terraform root missing::${{ steps.target.outputs.root }} has no .tf files; skipping plan."
+            echo "::notice title=Drift detection skipped::${{ steps.target.outputs.root }} has no .tf files yet."
+            {
+              echo "## Drift detection: ${{ steps.target.outputs.environment }}"
+              echo ""
+              echo "Skipped: Terraform root does not exist yet."
+              echo ""
+              echo "Root: \`${{ steps.target.outputs.root }}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Set up Terraform
@@ -76,13 +82,8 @@ jobs:
         with:
           terraform_version: 1.10.5
 
-      - name: Terraform fmt
-        if: steps.terraform.outputs.exists == 'true'
-        shell: bash
-        run: terraform -chdir="${PROJECT_DIR}/infra" fmt -check -recursive
-
       - name: Configure AWS credentials
-        if: steps.terraform.outputs.exists == 'true' && vars.AWS_PLAN_ROLE_ARN != ''
+        if: steps.terraform.outputs.exists == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
@@ -98,25 +99,41 @@ jobs:
         shell: bash
         run: terraform -chdir="${{ steps.target.outputs.root }}" validate
 
-      - name: Terraform plan
-        if: steps.terraform.outputs.exists == 'true' && vars.AWS_PLAN_ROLE_ARN != ''
+      - name: Terraform drift plan
+        if: steps.terraform.outputs.exists == 'true'
+        id: plan
         shell: bash
         run: |
-          set -euo pipefail
-          plan_output="${RUNNER_TEMP}/terraform-plan-${{ steps.target.outputs.environment }}.txt"
-          terraform -chdir="${{ steps.target.outputs.root }}" plan -input=false -no-color -out=tfplan.bin | tee "$plan_output"
+          set +e
+          terraform -chdir="${{ steps.target.outputs.root }}" plan -detailed-exitcode -input=false -no-color > "${RUNNER_TEMP}/drift-plan.txt"
+          exit_code=$?
+          set -e
+
           {
-            echo "## Terraform plan: ${{ steps.target.outputs.environment }}"
+            echo "## Drift detection: ${{ steps.target.outputs.environment }}"
+            echo ""
+            echo "Terraform root: \`${{ steps.target.outputs.root }}\`"
+            echo ""
+            echo "| Exit code | Meaning |"
+            echo "|---:|---|"
+            echo "| 0 | No drift |"
+            echo "| 1 | Plan error |"
+            echo "| 2 | Drift detected or infrastructure not applied |"
+            echo ""
+            echo "Observed exit code: \`${exit_code}\`"
             echo ""
             echo '```text'
-            sed -n '1,180p' "$plan_output"
+            sed -n '1,220p' "${RUNNER_TEMP}/drift-plan.txt"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Local-only Terraform validation
-        if: steps.terraform.outputs.exists == 'true' && vars.AWS_PLAN_ROLE_ARN == ''
-        shell: bash
-        run: |
-          echo "::notice title=AWS_PLAN_ROLE_ARN missing::Set repository variable AWS_PLAN_ROLE_ARN to enable remote plan."
-          terraform -chdir="${{ steps.target.outputs.root }}" init -backend=false -input=false
-          terraform -chdir="${{ steps.target.outputs.root }}" validate
+          if [[ "$exit_code" -eq 0 ]]; then
+            echo "::notice title=No drift::Terraform returned detailed exit code 0."
+            exit 0
+          elif [[ "$exit_code" -eq 2 ]]; then
+            echo "::warning title=Drift detected::Terraform returned detailed exit code 2. Review the plan summary and reconcile via PR."
+            exit 0
+          else
+            echo "::error title=Drift detection failed::Terraform plan returned exit code ${exit_code}."
+            exit "$exit_code"
+          fi

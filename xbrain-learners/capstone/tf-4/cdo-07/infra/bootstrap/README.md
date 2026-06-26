@@ -24,7 +24,7 @@ cp terraform.tfvars.example terraform.tfvars
 Sửa `state_bucket_name` thành bucket name global-unique, ví dụ:
 
 ```hcl
-state_bucket_name = "tf4-cdo07-tf-state-123456789012"
+state_bucket_name = "tf4-cdo07-tf-state-123456789012-use1"
 ```
 
 Sau đó chạy:
@@ -62,9 +62,9 @@ Các Terraform root trong `infra/environments/*` nên dùng:
 ```hcl
 terraform {
   backend "s3" {
-    bucket       = "tf4-cdo07-tf-state-123456789012"
+    bucket       = "tf4-cdo07-tf-state-123456789012-use1"
     key          = "tf4-cdo07/staging/terraform.tfstate"
-    region       = "ap-southeast-1"
+    region       = "us-east-1"
     encrypt      = true
     kms_key_id   = "<bootstrap-kms-key-arn>"
     use_lockfile = true
