@@ -60,7 +60,7 @@ Các quyết định kiến trúc chính:
 
 ### 4.1 Tenant model
 
-- **Tenant ID format**: `service_id` (payment-gateway, kyc-service, reporting-api)
+- **Tenant ID format**: `service_id` (payment-gateway, ledger-service, fraud-detection)
 - **Header**: `service_id`, `tenant_id`, `metric_type` mandatory trong Kinesis payload
 - **Subscription tiers**: All 3 services Tier-1 (per-service baseline models, 5-min prediction intervals)
 
