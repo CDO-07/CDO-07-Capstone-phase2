@@ -24,7 +24,7 @@ permissions:
   pull-requests: write
 
 env:
-  AWS_REGION: ap-southeast-1
+  AWS_REGION: us-east-1
   PROJECT_DIR: xbrain-learners/capstone/tf-4/cdo-07
 
 jobs:
