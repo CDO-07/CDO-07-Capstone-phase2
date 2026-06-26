@@ -23,3 +23,29 @@ terraform.rc
 
 # Ignore archive zip files
 *.zip
+# Exclude all .tfvars files, which are likely to contain sensitive data, such as
+# password, private keys, and other secrets.
+*.tfvars
+*.tfvars.json
+
+# Ignore override files as they are usually used for local testing and contain
+# sensitive data.
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform provider credentials
+.terraformrc
+terraform.rc
+
+# Build artifacts
+# Based on layer4-lambda.tf, build/ contains the lambda zip.
+build/
+
+# IDE / Editor specific
+.vscode/
+.idea/
+
+# Documentation
+architecture.md
