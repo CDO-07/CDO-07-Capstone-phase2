@@ -1,0 +1,139 @@
+name: drift-detection
+
+on:
+  schedule:
+    # Run daily at 02:15 UTC.
+    - cron: '15 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Terraform environment to check
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - prod
+          - bootstrap
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: drift-detection-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-1
+  PROJECT_DIR: xbrain-learners/capstone/tf-4/cdo-07
+
+jobs:
+  drift-detection:
+    name: Drift detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Terraform root
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            env_name="${{ inputs.environment }}"
+          else
+            env_name="staging"
+          fi
+
+          if [[ "$env_name" == "bootstrap" ]]; then
+            root="${PROJECT_DIR}/infra/bootstrap"
+          else
+            root="${PROJECT_DIR}/infra/environments/${env_name}"
+          fi
+
+          echo "environment=${env_name}" >> "$GITHUB_OUTPUT"
+          echo "root=${root}" >> "$GITHUB_OUTPUT"
+
+      - name: Detect Terraform root
+        id: terraform
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -d "${{ steps.target.outputs.root }}" ]] && find "${{ steps.target.outputs.root }}" -maxdepth 1 -type f -name '*.tf' | grep -q .; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Drift detection skipped::${{ steps.target.outputs.root }} has no .tf files yet."
+            {
+              echo "## Drift detection: ${{ steps.target.outputs.environment }}"
+              echo ""
+              echo "Skipped: Terraform root does not exist yet."
+              echo ""
+              echo "Root: \`${{ steps.target.outputs.root }}\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Set up Terraform
+        if: steps.terraform.outputs.exists == 'true'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+
+      - name: Configure AWS credentials
+        if: steps.terraform.outputs.exists == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        if: steps.terraform.outputs.exists == 'true'
+        shell: bash
+        run: terraform -chdir="${{ steps.target.outputs.root }}" init -input=false
+
+      - name: Terraform validate
+        if: steps.terraform.outputs.exists == 'true'
+        shell: bash
+        run: terraform -chdir="${{ steps.target.outputs.root }}" validate
+
+      - name: Terraform drift plan
+        if: steps.terraform.outputs.exists == 'true'
+        id: plan
+        shell: bash
+        run: |
+          set +e
+          terraform -chdir="${{ steps.target.outputs.root }}" plan -detailed-exitcode -input=false -no-color > "${RUNNER_TEMP}/drift-plan.txt"
+          exit_code=$?
+          set -e
+
+          {
+            echo "## Drift detection: ${{ steps.target.outputs.environment }}"
+            echo ""
+            echo "Terraform root: \`${{ steps.target.outputs.root }}\`"
+            echo ""
+            echo "| Exit code | Meaning |"
+            echo "|---:|---|"
+            echo "| 0 | No drift |"
+            echo "| 1 | Plan error |"
+            echo "| 2 | Drift detected or infrastructure not applied |"
+            echo ""
+            echo "Observed exit code: \`${exit_code}\`"
+            echo ""
+            echo '```text'
+            sed -n '1,220p' "${RUNNER_TEMP}/drift-plan.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$exit_code" -eq 0 ]]; then
+            echo "::notice title=No drift::Terraform returned detailed exit code 0."
+            exit 0
+          elif [[ "$exit_code" -eq 2 ]]; then
+            echo "::warning title=Drift detected::Terraform returned detailed exit code 2. Review the plan summary and reconcile via PR."
+            exit 0
+          else
+            echo "::error title=Drift detection failed::Terraform plan returned exit code ${exit_code}."
+            exit "$exit_code"
+          fi
