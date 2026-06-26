@@ -45,11 +45,7 @@ Bảng dưới đây minh họa lý do tại sao kiến trúc ADOT/AMP tối ưu
 
 ## 3. Cost optimization applied
 
-☐ Spot instances cho non-critical workload (Có thể áp dụng cho mock services / k6 Load Generator task)
-☐ Reserved capacity cho baseline AI Engine
 ☑ **S3 lifecycle tiering:** Standard → Glacier cho ML baselines + Audit Logs ($0.79/tháng).
-☐ DynamoDB on-demand vs provisioned (Không áp dụng, dùng AMP)
-☐ Bedrock prompt caching (Không áp dụng theo constraint: Không sử dụng LLM)
 ☑ **Right-sizing ADOT sidecar:** Giới hạn 0.25 vCPU/0.5GB per task để tối thiểu overhead ($35.56/tháng cho 4 tasks).
 ☑ **Log retention tiering:** CloudWatch Logs giới hạn dung lượng cho Audit & Compliance ($3.15/tháng).
 ☑ **Data transfer optimization:** Kết nối private qua VPC Endpoints (ECR, CloudWatch, AMP) thay vì NAT Gateway, chặn đứng hoàn toàn phí Data Processing của NAT dù base cost theo giờ cao ($28.80).
